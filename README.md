@@ -8,6 +8,8 @@ Built entirely with Terraform. Tested step by step.
 
 ## Architecture
 
+![Architecture Diagram](docs/architecture.svg)
+
 ```
 EC2 (SSM only · IMDSv2 · no SSH key · no open ports)
   └── IAM Role (breach-lab-ec2-role)
