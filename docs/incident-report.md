@@ -25,6 +25,10 @@ An EC2 instance role was given `s3:* on *`. After landing on the instance via SS
 | T+00:06 | `StopLogging` on CloudTrail | ❌ AccessDenied |
 | T+00:07 | `DeleteDetector` on GuardDuty | ❌ AccessDenied |
 | T+00:08 | SSM session terminated | — |
+| T+00:09 | Credentials exported to external machine | ✅ Simulated |
+| T+00:10 | `ListBuckets` from external IP | ✅ Would succeed |
+| T+00:10 | `GetObject` from data bucket — external IP | ✅ Would succeed |
+| T+00:11 | Source IP change detected in CloudTrail | ✅ Key detection signal |
 
 ---
 
@@ -52,6 +56,22 @@ IAM policy was too broad. The sensitive bucket's protection depended entirely on
 **CloudTrail** captured every event including denied ones. Raw `.json.gz` log files had error codes and exact request parameters that the `lookup-events` API strips out — those were needed to confirm AccessDenied events precisely.
 
 **GuardDuty** flagged the anomalous S3 access pattern with a ~15–30 minute delay. CloudTrail was the source of truth throughout the investigation; GuardDuty was the alert layer on top.
+
+---
+
+## Detection Signals
+
+| Signal | Source | Detail |
+|--------|--------|--------|
+| EC2 source IP | CloudTrail | 18.x.x.x — normal instance traffic |
+| External source IP | CloudTrail | attacker home IP — same role ARN |
+| IP change on same ARN | CloudTrail | Primary exfiltration indicator |
+| GuardDuty delay | GuardDuty | 15–30 min lag — CloudTrail is ground truth |
+
+The source IP shift on the same IAM role ARN is the clearest
+signal that credentials left the instance and were used
+externally. In a real incident this triggers immediate
+session revocation using aws:TokenIssueTime condition.
 
 ---
 

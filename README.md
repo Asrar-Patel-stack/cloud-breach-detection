@@ -139,6 +139,10 @@ terraform destroy
 - Use a **dedicated VPC** with private subnets and NAT instead of the default VPC
 - Enable **SSE-KMS** on the log bucket for per-key-use audit logs
 - Complete the credential exfiltration path — export IMDS credentials to a local machine and test them externally
+- Add an **SCP (Service Control Policy)** at the AWS Organizations
+  level denying `cloudtrail:StopLogging` and `guardduty:DeleteDetector`
+  account-wide — enforced above IAM, cannot be overridden by any
+  policy including root
 
 ---
 

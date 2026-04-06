@@ -96,7 +96,16 @@ Then ran a full validation suite from inside a fresh SSM session to confirm all 
 
 **Add explicit denies for `cloudtrail:StopLogging` and `guardduty:DeleteDetector`** directly on the EC2 role. Currently those fail because the role has no permission — which works — but an explicit deny is more intentional and survives future policy additions.
 
-**Complete the credential exfiltration path.** I harvested the IMDS credentials but didn't simulate using them from an external machine. That's the realistic follow-on: export the credentials, run AWS CLI from a local machine using those credentials, and see what the CloudTrail events look like when the source IP is external rather than the EC2 instance.
+**Complete the credential exfiltration path.**
+After harvesting IMDS credentials from inside EC2, the next
+step is exporting them to an external machine and running AWS
+CLI commands using those credentials. The key detection signal
+is the source IP change in CloudTrail — same IAM role ARN,
+different IP address. That anomaly is what a SOC analyst looks
+for when investigating suspected credential theft. The correct
+response is time-based session revocation using the
+aws:TokenIssueTime condition, which kills all active sessions
+issued before the compromise without rotating the role itself.
 
 ---
 
