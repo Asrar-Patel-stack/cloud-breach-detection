@@ -59,7 +59,7 @@ cloud-breach-lab/
 
 - AWS CLI configured with credentials that have permissions to create EC2, IAM, S3, CloudTrail, GuardDuty resources
 - Terraform >= 1.3.0
-- `aws ssm` plugin installed for Session Manager access
+- [SSM Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed separately from the AWS CLI
 
 ---
 
